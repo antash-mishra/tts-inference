@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables and secrets
+.env
+.env.local
+*.env
+secrets.json
+credentials.json
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Model files and directories
+models/
+*.pt
+*.pth
+*.onnx
+*.bin
+*.ckpt
+*.h5
+*.hdf5
+*.keras
+weights/
+
+# Logs
+logs/
+*.log
+
+# Audio files
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Docker
+.dockerignore
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# RunPod specific
+.runpod/ 
