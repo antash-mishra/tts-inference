@@ -24,33 +24,25 @@ def handler(event):
     # Extract input data
     input_data = event["input"]
     text = input_data.get("text", "")
-    description = input_data.get("description", "A natural sounding voice")
+    description = input_data.get("description", "A female speaker delivers a slightly expressive and animated speech with a moderate speed and pitch. The recording is of very high quality, with the speaker's voice sounding clear and very close up.")
     
     # Check if we have valid text
     if not text:
         return {"error": "No text provided in input"}
     
     try:
-        # Collect all audio chunks
-        all_audio = []
-        sample_rates = []
-        
         print(f"Generating audio for text: {text}")
         
         # Generate audio from the text
-        for sample_rate, audio_chunk in generate(text, description):
-            # Store audio chunks and sample rate
-            all_audio.append(audio_chunk)
-            sample_rates.append(sample_rate)
-            print(f"Generated audio chunk of length: {len(audio_chunk)}")
+        # Non-streaming version now returns (sample_rate, audio) directly
+        sample_rate, audio = generate(text, description)
         
-        # Combine all audio chunks
-        combined_audio = np.concatenate(all_audio) if all_audio else np.array([])
+        print(f"Generated audio with length: {len(audio)}")
         
         # Convert audio to base64 for response
         audio_bytes = BytesIO()
         import soundfile as sf
-        sf.write(audio_bytes, combined_audio, sample_rates[0] if sample_rates else 24000, format='WAV')
+        sf.write(audio_bytes, audio, sample_rate, format='WAV')
         audio_bytes.seek(0)
         audio_base64 = base64.b64encode(audio_bytes.read()).decode('utf-8')
         
@@ -58,7 +50,7 @@ def handler(event):
         return {
             "text": text,  # Echo back the input text
             "audio_base64": audio_base64,
-            "sample_rate": sample_rates[0] if sample_rates else 24000,
+            "sample_rate": sample_rate,
             "status": "success"
         }
         
