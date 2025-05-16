@@ -2,6 +2,6 @@ runpod==1.7.9
 torch==2.0.1
 transformers==4.46.1
 soundfile==0.12.1
-numpy==2.0.0
+numpy==1.22.0
 accelerate==1.7.0
 parler_tts==0.2.3
