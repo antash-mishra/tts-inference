@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .chat-container {
+            height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        .user-message, .ai-message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #dcf8c6;
+            margin-left: auto;
+            text-align: right;
+        }
+        .ai-message {
+            background-color: #f1f0f0;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            color: #666;
+        }
+        .loading {
+            display: none;
+            margin-top: 10px;
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice Assistant</h1>
+        <div class="chat-container" id="chatContainer"></div>
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Type your message here..." autocomplete="off">
+            <button id="sendButton">Send</button>
+        </div>
+        <div class="loading" id="loading">AI is thinking and generating voice...</div>
+        <div class="status" id="status">Disconnected</div>
+    </div>
+
+    <script>
+        let audioContext;
+        let audioQueue = [];
+        let isPlaying = false;
+        let websocket;
+        
+        // DOM elements
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        const statusElement = document.getElementById('status');
+        const chatContainer = document.getElementById('chatContainer');
+        const loadingElement = document.getElementById('loading');
+        
+        // Initialize WebSocket connection
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            websocket = new WebSocket(wsUrl);
+            
+            websocket.onopen = function(e) {
+                statusElement.textContent = 'Connected';
+                statusElement.style.color = '#4CAF50';
+                sendButton.disabled = false;
+            };
+            
+            websocket.onclose = function(e) {
+                statusElement.textContent = 'Disconnected';
+                statusElement.style.color = '#f44336';
+                sendButton.disabled = true;
+                
+                // Try to reconnect after 2 seconds
+                setTimeout(connect, 2000);
+            };
+            
+            websocket.onerror = function(e) {
+                console.error('WebSocket error:', e);
+                statusElement.textContent = 'Error connecting';
+                statusElement.style.color = '#f44336';
+            };
+            
+            websocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                
+                // Handle text response
+                if (data.text) {
+                    displayAIMessage(data.text);
+                }
+                
+                // Handle audio chunk
+                if (data.audio) {
+                    const audioData = base64ToArrayBuffer(data.audio);
+                    const sampleRate = data.sample_rate;
+                    queueAudioForPlayback(audioData, sampleRate);
+                }
+                
+                // Handle end of stream
+                if (data.eos) {
+                    loadingElement.style.display = 'none';
+                }
+            };
+        }
+        
+        // Initialize AudioContext
+        function initAudio() {
+            // Create AudioContext on first user interaction
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        
+        // Convert base64 to ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Float32Array(len / 4);
+            
+            for (let i = 0, j = 0; i < len; i += 4, j++) {
+                // Assuming the binary data represents 32-bit floats (4 bytes per float)
+                const buffer = new ArrayBuffer(4);
+                const view = new DataView(buffer);
+                view.setUint8(0, binaryString.charCodeAt(i));
+                view.setUint8(1, binaryString.charCodeAt(i + 1));
+                view.setUint8(2, binaryString.charCodeAt(i + 2));
+                view.setUint8(3, binaryString.charCodeAt(i + 3));
+                bytes[j] = view.getFloat32(0, true);
+            }
+            
+            return bytes;
+        }
+        
+        // Queue audio chunk for playback
+        function queueAudioForPlayback(audioData, sampleRate) {
+            audioQueue.push({ audioData, sampleRate });
+            
+            if (!isPlaying) {
+                playNextAudioChunk();
+            }
+        }
+        
+        // Play next audio chunk in queue
+        function playNextAudioChunk() {
+            if (audioQueue.length === 0) {
+                isPlaying = false;
+                return;
+            }
+            
+            isPlaying = true;
+            const { audioData, sampleRate } = audioQueue.shift();
+            
+            // Create audio buffer
+            const audioBuffer = audioContext.createBuffer(1, audioData.length, sampleRate);
+            const channelData = audioBuffer.getChannelData(0);
+            
+            // Copy audio data to channel
+            for (let i = 0; i < audioData.length; i++) {
+                channelData[i] = audioData[i];
+            }
+            
+            // Create audio source
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+            
+            // Play audio and queue next chunk when done
+            source.onended = playNextAudioChunk;
+            source.start();
+        }
+        
+        // Display user message in chat
+        function displayUserMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'user-message';
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Display AI message in chat
+        function displayAIMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = 'ai-message';
+            messageElement.textContent = message;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // Send message to server
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message === '') return;
+            
+            // Initialize audio on first interaction
+            initAudio();
+            
+            // Display user message
+            displayUserMessage(message);
+            
+            // Clear input
+            messageInput.value = '';
+            
+            // Show loading indicator
+            loadingElement.style.display = 'block';
+            
+            // Send message to server
+            websocket.send(JSON.stringify({ message }));
+        }
+        
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Initialize connection
+        connect();
+    </script>
+</body>
+</html> 

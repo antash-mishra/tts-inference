@@ -79,3 +79,5 @@ Thumbs.db
 
 # RunPod specific
 .runpod/ 
+vaani-test/.env
+vaani-test/metrics_server/
