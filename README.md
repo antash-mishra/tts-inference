@@ -4,7 +4,7 @@ This repository contains a RunPod worker for running Parler TTS inference in a s
 
 ## Overview
 
-This worker accepts text as input and returns the generated speech audio as base64-encoded WAV data.
+This worker accepts text as input and returns the generated speech audio as base64-encoded WAV data. The TTS implementation is optimized for single-pass generation rather than streaming.
 
 ## Input Format
 
@@ -43,12 +43,19 @@ To test the worker locally:
    pip install -r requirements.txt
    ```
 
-3. Run the handler:
+3. Run the test script:
    ```
-   python rp_handler.py
+   python test_and_save.py
    ```
 
-This will use the `test_input.json` file as input.
+This will use the `test_input.json` file as input and save the generated audio to `test_output.wav`.
+
+## Performance Benchmarks
+
+When running locally on a machine with decent GPU support, you can expect:
+- Processing ratio: Typically 10-20x faster than real-time
+- Latency: Usually under 1-2 seconds for short texts
+- Audio quality: High-quality natural-sounding voices
 
 ## Deployment to RunPod
 
@@ -74,6 +81,7 @@ This will use the `test_input.json` file as input.
    ```
    curl -X POST "https://api.runpod.ai/v2/YOUR_ENDPOINT_ID/run" \
         -H "Content-Type: application/json" \
+        -H "Authorization: Bearer YOUR_API_KEY" \
         -d '{"input": {"text": "Hello world"}}'
    ```
 
@@ -87,6 +95,7 @@ async function generateSpeech(text, description = "") {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': 'Bearer YOUR_API_KEY'
     },
     body: JSON.stringify({
       input: {
@@ -97,6 +106,18 @@ async function generateSpeech(text, description = "") {
   });
   
   return await response.json();
+}
+```
+
+To extract and play the audio in a web browser:
+
+```javascript
+function playAudio(responseData) {
+  const audioData = responseData.output.audio_base64;
+  const audioSrc = `data:audio/wav;base64,${audioData}`;
+  
+  const audio = new Audio(audioSrc);
+  audio.play();
 }
 ```
 
