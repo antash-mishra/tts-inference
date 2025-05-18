@@ -39,6 +39,7 @@ credentials.json
 .pydevproject
 .settings/
 
+
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb
@@ -81,3 +82,5 @@ Thumbs.db
 .runpod/ 
 vaani-test/.env
 vaani-test/metrics_server/
+IndicTransToolkit/IndicTransToolkit/__pycache__
+venv_py310/
